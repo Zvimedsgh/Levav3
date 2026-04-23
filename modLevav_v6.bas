@@ -2187,9 +2187,11 @@ ERR_HANDLER:
 End Sub
 
 ' ============================================================================
-' PRESENTATION BUILDER - v4
-' Phase 1: Create all chart images in Excel (no PowerPoint open)
-' Phase 2: Open PowerPoint and build slides using saved images
+' MACRO 3: BuildPresentation
+' Creates a PPTX management presentation from comparison sheets
+' v5: Landscape, split charts/tables, page numbers, insured column
+' Phase 1: Export charts as images (Excel only)
+' Phase 2: Build PowerPoint slides from images + data
 ' ============================================================================
 Public Sub BuildPresentation()
 
@@ -2216,7 +2218,7 @@ Public Sub BuildPresentation()
 120         Exit Sub
 130     End If
 
-        ' Show processing message: "meyatzer matzget..."
+        ' Show processing message
 140     With wsMain.Range("B8")
 150         .Value = ChrW(1502) & ChrW(1497) & ChrW(1497) & ChrW(1510) & ChrW(1512) & " " & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & "..."
 160         .Font.Size = 16
@@ -2234,133 +2236,146 @@ Public Sub BuildPresentation()
 230     tmpPath = Environ$("TEMP") & "\"
 
         Dim imgTotal As String
-        Dim imgFiles() As String
-        Dim imgCount As Long
-240     imgCount = 0
+240     imgTotal = tmpPath & "levav_total.gif"
+250     ExportTotalChart imgTotal, yearVal, refYear
 
-        ' --- Total chart ---
-250     imgTotal = tmpPath & "levav_total.gif"
-260     ExportTotalChart imgTotal, yearVal, refYear
-
-        ' --- Comp charts (2 per sheet: premiums + commissions) ---
-        ' We store paths in pairs: imgFiles(1)=prem, imgFiles(2)=comm for sheet 1, etc.
-        Dim sheetList(1 To 5) As String
+        ' Build list of sheets to process
+        Dim sheetList(1 To 6) As String
         Dim sheetCount As Long
-270     sheetCount = 0
+260     sheetCount = 0
 
-280     If SheetExists(SHEET_MONTHS()) Then
-290         sheetCount = sheetCount + 1
-300         sheetList(sheetCount) = SHEET_MONTHS()
-310     End If
-320     If SheetExists(SHEET_COMPANIES()) Then
-330         sheetCount = sheetCount + 1
-340         sheetList(sheetCount) = SHEET_COMPANIES()
-350     End If
-360     If SheetExists(SHEET_MAINBRANCH()) Then
-370         sheetCount = sheetCount + 1
-380         sheetList(sheetCount) = SHEET_MAINBRANCH()
-390     End If
-400     If SheetExists(SHEET_TELLERS()) Then
-410         sheetCount = sheetCount + 1
-420         sheetList(sheetCount) = SHEET_TELLERS()
-430     End If
-440     If SheetExists(SHEET_AGENTS()) Then
-450         sheetCount = sheetCount + 1
-460         sheetList(sheetCount) = SHEET_AGENTS()
-470     End If
+270     If SheetExists(SHEET_MONTHS()) Then
+280         sheetCount = sheetCount + 1
+290         sheetList(sheetCount) = SHEET_MONTHS()
+300     End If
+310     If SheetExists(SHEET_COMPANIES()) Then
+320         sheetCount = sheetCount + 1
+330         sheetList(sheetCount) = SHEET_COMPANIES()
+340     End If
+350     If SheetExists(SHEET_MAINBRANCH()) Then
+360         sheetCount = sheetCount + 1
+370         sheetList(sheetCount) = SHEET_MAINBRANCH()
+380     End If
+390     If SheetExists(SHEET_TELLERS()) Then
+400         sheetCount = sheetCount + 1
+410         sheetList(sheetCount) = SHEET_TELLERS()
+420     End If
+430     If SheetExists(SHEET_AGENTS()) Then
+440         sheetCount = sheetCount + 1
+450         sheetList(sheetCount) = SHEET_AGENTS()
+460     End If
 
         ' Export 2 charts per sheet
         Dim si As Long
-480     ReDim imgFiles(1 To sheetCount * 2)
-490     For si = 1 To sheetCount
-500         imgFiles(si * 2 - 1) = tmpPath & "levav_prem_" & si & ".gif"
-510         imgFiles(si * 2) = tmpPath & "levav_comm_" & si & ".gif"
-520         ExportCompCharts sheetList(si), imgFiles(si * 2 - 1), imgFiles(si * 2), yearVal, refYear
-530     Next si
+        Dim imgFiles() As String
+470     ReDim imgFiles(1 To sheetCount * 2)
+480     For si = 1 To sheetCount
+490         imgFiles(si * 2 - 1) = tmpPath & "levav_prem_" & si & ".gif"
+500         imgFiles(si * 2) = tmpPath & "levav_comm_" & si & ".gif"
+510         ExportCompCharts sheetList(si), imgFiles(si * 2 - 1), imgFiles(si * 2), yearVal, refYear
+520     Next si
 
-540     DoEvents
+530     DoEvents
 
         ' ================================================================
-        ' PHASE 2: Open PowerPoint and build slides using images
+        ' PHASE 2: Open PowerPoint and build slides
         ' ================================================================
         Dim ppApp As Object
         Dim ppPres As Object
         Dim ppSlide As Object
-550     Set ppApp = CreateObject("PowerPoint.Application")
-560     ppApp.Visible = True
-570     Set ppPres = ppApp.Presentations.Add
+540     Set ppApp = CreateObject("PowerPoint.Application")
+550     ppApp.Visible = True
+560     Set ppPres = ppApp.Presentations.Add
 
-        ' Set portrait slide size (7.5" x 13.33")
-580     ppPres.PageSetup.SlideWidth = 540
-590     ppPres.PageSetup.SlideHeight = 960
+        ' Set LANDSCAPE slide size (13.33" x 7.5")
+570     ppPres.PageSetup.SlideWidth = 960
+580     ppPres.PageSetup.SlideHeight = 540
 
         Dim slideIdx As Long
         Dim slideW As Single
         Dim slideH As Single
-600     slideIdx = 0
-610     slideW = 540
-620     slideH = 960
+590     slideIdx = 0
+600     slideW = 960
+610     slideH = 540
+
+        ' Slide title names (Hebrew)
+        Dim titleNames(1 To 6) As String
+620     titleNames(1) = ChrW(1495) & ChrW(1493) & ChrW(1491) & ChrW(1513) & ChrW(1497) & ChrW(1501)
+630     titleNames(2) = ChrW(1495) & ChrW(1489) & ChrW(1512) & ChrW(1493) & ChrW(1514)
+640     titleNames(3) = ChrW(1506) & ChrW(1504) & ChrW(1507) & " " & ChrW(1502) & ChrW(1512) & ChrW(1499) & ChrW(1494)
+650     titleNames(4) = ChrW(1496) & ChrW(1500) & ChrW(1512) & ChrW(1497) & ChrW(1493) & ChrW(1514)
+660     titleNames(5) = ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1497) & ChrW(1501)
 
         ' SLIDE 1: Title
-630     slideIdx = slideIdx + 1
-640     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-650     BuildTitleSlide ppSlide, yearVal, refYear, periodDesc
+670     slideIdx = slideIdx + 1
+680     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+690     BuildTitleSlide ppSlide, yearVal, refYear, periodDesc, slideW, slideH
 
-        ' SLIDE 2: Total Summary
-660     slideIdx = slideIdx + 1
-670     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-680     BuildTotalSlideFromImage ppSlide, imgTotal, yearVal, refYear, slideW
+        ' SLIDE 2: Total Summary chart
+700     slideIdx = slideIdx + 1
+710     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+720     BuildTotalSlideFromImage ppSlide, imgTotal, yearVal, refYear, slideW
 
-        ' Comp slides
-        Dim titleNames(1 To 5) As String
-690     titleNames(1) = ChrW(1495) & ChrW(1493) & ChrW(1491) & ChrW(1513) & ChrW(1497) & ChrW(1501)
-700     titleNames(2) = ChrW(1495) & ChrW(1489) & ChrW(1512) & ChrW(1493) & ChrW(1514)
-710     titleNames(3) = ChrW(1506) & ChrW(1504) & ChrW(1507) & " " & ChrW(1502) & ChrW(1512) & ChrW(1499) & ChrW(1494)
-720     titleNames(4) = ChrW(1496) & ChrW(1500) & ChrW(1512) & ChrW(1497) & ChrW(1493) & ChrW(1514)
-730     titleNames(5) = ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1497) & ChrW(1501)
+        ' For each comparison sheet: 3 slides (prem chart, comm chart, table)
+730     For si = 1 To sheetCount
+            ' Slide: Premium chart
+740         slideIdx = slideIdx + 1
+750         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+760         BuildChartSlide ppSlide, imgFiles(si * 2 - 1), ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
 
-740     For si = 1 To sheetCount
-750         slideIdx = slideIdx + 1
-760         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-770         BuildCompSlideFromImages ppSlide, sheetList(si), imgFiles(si * 2 - 1), imgFiles(si * 2), yearVal, refYear, titleNames(si), slideW, slideH
-780     Next si
+            ' Slide: Commission chart
+770         slideIdx = slideIdx + 1
+780         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+790         BuildChartSlide ppSlide, imgFiles(si * 2), ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
+
+            ' Slide: Data table
+800         slideIdx = slideIdx + 1
+810         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+820         BuildTableSlide ppSlide, sheetList(si), titleNames(si), yearVal, refYear, slideW, slideH
+830     Next si
+
+        ' Add page numbers to all slides
+        Dim pg As Long
+840     For pg = 1 To ppPres.Slides.Count
+850         AddPageNumber ppPres.Slides(pg), pg, ppPres.Slides.Count, slideW, slideH
+860     Next pg
 
         ' Save presentation
         Dim savePath As String
-790     savePath = ThisWorkbook.Path & "\" & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492) & " " & yearVal & ".pptx"
-800     ppPres.SaveAs savePath
-810     ppPres.Close
-820     ppApp.Quit
-830     Set ppPres = Nothing
-840     Set ppApp = Nothing
+870     savePath = ThisWorkbook.Path & "\" & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492) & " " & yearVal & ".pptx"
+880     ppPres.SaveAs savePath
+890     ppPres.Close
+900     ppApp.Quit
+910     Set ppPres = Nothing
+920     Set ppApp = Nothing
 
         ' Cleanup temp images
-850     On Error Resume Next
-860     Kill imgTotal
-870     For si = 1 To sheetCount * 2
-880         Kill imgFiles(si)
-890     Next si
-900     On Error GoTo ERR_HANDLER
+930     On Error Resume Next
+940     Kill imgTotal
+950     For si = 1 To sheetCount * 2
+960         Kill imgFiles(si)
+970     Next si
+980     On Error GoTo ERR_HANDLER
 
         ' Clear processing message
-910     With wsMain.Range("B8")
-920         .Value = ""
-930         .Interior.ColorIndex = xlNone
-940     End With
+990     With wsMain.Range("B8")
+1000        .Value = ""
+1010        .Interior.ColorIndex = xlNone
+1020    End With
 
-        ' "hamatzget notzra behatzlacha!"
-950     MsgBoxU ChrW(1492) & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1504) & ChrW(1493) & ChrW(1510) & ChrW(1512) & ChrW(1492) & " " & ChrW(1489) & ChrW(1492) & ChrW(1510) & ChrW(1500) & ChrW(1495) & ChrW(1492) & "!" & vbCrLf & savePath, vbInformation
+        ' Success message
+1030    MsgBoxU ChrW(1492) & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1504) & ChrW(1493) & ChrW(1510) & ChrW(1512) & ChrW(1492) & " " & ChrW(1489) & ChrW(1492) & ChrW(1510) & ChrW(1500) & ChrW(1495) & ChrW(1492) & "!" & vbCrLf & savePath, vbInformation
 
-960     Exit Sub
+1040    Exit Sub
 
 ERR_HANDLER:
         Dim errLine As Long
         Dim errDesc As String
         Dim errNum As Long
-970     errLine = Erl
-972     errDesc = Err.Description
-974     errNum = Err.Number
-976     On Error Resume Next
+1050    errLine = Erl
+1052    errDesc = Err.Description
+1054    errNum = Err.Number
+1056    On Error Resume Next
         With wsMain.Range("B8")
             .Value = ""
             .Interior.ColorIndex = xlNone
@@ -2372,14 +2387,13 @@ ERR_HANDLER:
         For ei = 1 To sheetCount * 2
             Kill imgFiles(ei)
         Next ei
-980     MsgBoxU ChrW(1513) & ChrW(1490) & ChrW(1497) & ChrW(1488) & ChrW(1492) & " " & ChrW(1489) & ChrW(1497) & ChrW(1510) & ChrW(1497) & ChrW(1512) & ChrW(1514) & " " & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & ":" & vbCrLf & "Line: " & errLine & vbCrLf & "Err #" & errNum & ": " & errDesc, vbCritical
+1060    MsgBoxU ChrW(1513) & ChrW(1490) & ChrW(1497) & ChrW(1488) & ChrW(1492) & " " & ChrW(1489) & ChrW(1497) & ChrW(1510) & ChrW(1497) & ChrW(1512) & ChrW(1514) & " " & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & ":" & vbCrLf & "Line: " & errLine & vbCrLf & "Err #" & errNum & ": " & errDesc, vbCritical
 
 End Sub
 
 
 ' ============================================================================
 ' HELPER: Export Total Summary chart to image file
-' Called BEFORE PowerPoint is opened
 ' ============================================================================
 Private Sub ExportTotalChart(ByVal imgPath As String, ByVal yearVal As String, ByVal refYear As String)
 
@@ -2416,7 +2430,7 @@ Private Sub ExportTotalChart(ByVal imgPath As String, ByVal yearVal As String, B
 180     tmpWs.Cells(2, 4).Value = sumCR
 190     tmpWs.Cells(2, 5).Value = sumCC
 
-200     Set co = tmpWs.ChartObjects.Add(10, 10, 500, 350)
+200     Set co = tmpWs.ChartObjects.Add(10, 10, 600, 400)
 210     Set xlCht = co.Chart
 220     xlCht.ChartType = 51
 230     xlCht.SetSourceData tmpWs.Range("A1:E2")
@@ -2443,7 +2457,6 @@ End Sub
 
 ' ============================================================================
 ' HELPER: Export Comparison charts (premiums + commissions) to 2 image files
-' Called BEFORE PowerPoint is opened
 ' ============================================================================
 Private Sub ExportCompCharts(ByVal sheetName As String, ByVal imgPrem As String, ByVal imgComm As String, ByVal yearVal As String, ByVal refYear As String)
 
@@ -2506,7 +2519,7 @@ Private Sub ExportCompCharts(ByVal sheetName As String, ByVal imgPrem As String,
 310         tmpWs.Cells(ci + 1, 3).Value = arrPremC(ci)
 320     Next ci
 
-330     Set co = tmpWs.ChartObjects.Add(10, 10, 500, 250)
+330     Set co = tmpWs.ChartObjects.Add(10, 10, 600, 350)
 340     Set xlCht = co.Chart
 350     xlCht.ChartType = 51
 360     xlCht.SetSourceData tmpWs.Range(tmpWs.Cells(1, 1), tmpWs.Cells(chartItems + 1, 3))
@@ -2515,7 +2528,6 @@ Private Sub ExportCompCharts(ByVal sheetName As String, ByVal imgPrem As String,
 
 390     xlCht.Export imgPrem
 
-        ' Clear for reuse
 400     tmpWs.ChartObjects.Delete
 410     tmpWs.Cells.Clear
 
@@ -2529,7 +2541,7 @@ Private Sub ExportCompCharts(ByVal sheetName As String, ByVal imgPrem As String,
 480         tmpWs.Cells(ci + 1, 3).Value = arrCommC(ci)
 490     Next ci
 
-500     Set co = tmpWs.ChartObjects.Add(10, 10, 500, 250)
+500     Set co = tmpWs.ChartObjects.Add(10, 10, 600, 350)
 510     Set xlCht = co.Chart
 520     xlCht.ChartType = 51
 530     xlCht.SetSourceData tmpWs.Range(tmpWs.Cells(1, 1), tmpWs.Cells(chartItems + 1, 3))
@@ -2538,7 +2550,6 @@ Private Sub ExportCompCharts(ByVal sheetName As String, ByVal imgPrem As String,
 
 560     xlCht.Export imgComm
 
-        ' Cleanup
 570     Application.DisplayAlerts = False
 580     tmpWs.Delete
 590     Application.DisplayAlerts = True
@@ -2556,70 +2567,66 @@ End Sub
 
 
 ' ============================================================================
-' HELPER: Build Title Slide
+' HELPER: Build Title Slide (landscape)
 ' ============================================================================
-Private Sub BuildTitleSlide(ByVal ppSlide As Object, ByVal yearVal As String, ByVal refYear As String, ByVal periodDesc As String)
+Private Sub BuildTitleSlide(ByVal ppSlide As Object, ByVal yearVal As String, ByVal refYear As String, ByVal periodDesc As String, ByVal slideW As Single, ByVal slideH As Single)
 
 10      On Error GoTo ERR_HANDLER
 
         Dim shp As Object
-        Dim slideW As Single
-        Dim slideH As Single
-20      slideW = ppSlide.Parent.PageSetup.SlideWidth
-30      slideH = ppSlide.Parent.PageSetup.SlideHeight
 
         ' Yellow/gold background
-40      Set shp = ppSlide.Shapes.AddShape(1, 0, 0, slideW, slideH)
-50      shp.Fill.ForeColor.RGB = RGB(240, 190, 50)
-60      shp.Line.Visible = False
+20      Set shp = ppSlide.Shapes.AddShape(1, 0, 0, slideW, slideH)
+30      shp.Fill.ForeColor.RGB = RGB(240, 190, 50)
+40      shp.Line.Visible = False
 
         ' White center rectangle
         Dim wL As Single
         Dim wT As Single
         Dim wW As Single
         Dim wH As Single
-70      wL = 36
-72      wT = 60
-74      wW = slideW - 72
-76      wH = slideH * 0.7
-80      Set shp = ppSlide.Shapes.AddShape(1, wL, wT, wW, wH)
-90      shp.Fill.ForeColor.RGB = RGB(255, 255, 255)
-100     shp.Line.Visible = False
+50      wL = 50
+52      wT = 40
+54      wW = slideW - 100
+56      wH = slideH - 80
+60      Set shp = ppSlide.Shapes.AddShape(1, wL, wT, wW, wH)
+70      shp.Fill.ForeColor.RGB = RGB(255, 255, 255)
+80      shp.Line.Visible = False
 
         ' Title: "matzget hanhala"
-110     Set shp = ppSlide.Shapes.AddTextbox(1, wL + 20, wT + 40, wW - 40, 80)
-120     shp.TextFrame.TextRange.Text = ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492)
-130     shp.TextFrame.TextRange.Font.Size = 36
-140     shp.TextFrame.TextRange.Font.Bold = True
-150     shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
-160     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-170     shp.TextFrame.WordWrap = True
+90      Set shp = ppSlide.Shapes.AddTextbox(1, wL + 30, wT + 50, wW - 60, 80)
+100     shp.TextFrame.TextRange.Text = ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492)
+110     shp.TextFrame.TextRange.Font.Size = 40
+120     shp.TextFrame.TextRange.Font.Bold = True
+130     shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
+140     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+150     shp.TextFrame.WordWrap = True
 
-        ' Period: "refYear mol yearVal (periodDesc)"
-180     Set shp = ppSlide.Shapes.AddTextbox(1, wL + 20, wT + 200, wW - 40, 120)
-190     shp.TextFrame.TextRange.Text = refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal & vbCrLf & "(" & periodDesc & ")"
-200     shp.TextFrame.TextRange.Font.Size = 30
-210     shp.TextFrame.TextRange.Font.Color.RGB = RGB(80, 80, 80)
-220     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-230     shp.TextFrame.WordWrap = True
+        ' Period
+160     Set shp = ppSlide.Shapes.AddTextbox(1, wL + 30, wT + 160, wW - 60, 100)
+170     shp.TextFrame.TextRange.Text = refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal & vbCrLf & "(" & periodDesc & ")"
+180     shp.TextFrame.TextRange.Font.Size = 32
+190     shp.TextFrame.TextRange.Font.Color.RGB = RGB(80, 80, 80)
+200     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+210     shp.TextFrame.WordWrap = True
 
-        ' Company name: "levav sochnut lebituach"
-240     Set shp = ppSlide.Shapes.AddTextbox(1, wL + 20, wT + wH - 120, wW - 40, 80)
-250     shp.TextFrame.TextRange.Text = ChrW(1500) & ChrW(1489) & ChrW(1489) & " " & ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1489) & ChrW(1497) & ChrW(1496) & ChrW(1493) & ChrW(1495)
-260     shp.TextFrame.TextRange.Font.Size = 32
-270     shp.TextFrame.TextRange.Font.Bold = True
-280     shp.TextFrame.TextRange.Font.Color.RGB = RGB(0, 130, 60)
-290     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-300     shp.TextFrame.WordWrap = True
+        ' Company name
+220     Set shp = ppSlide.Shapes.AddTextbox(1, wL + 30, wT + wH - 100, wW - 60, 70)
+230     shp.TextFrame.TextRange.Text = ChrW(1500) & ChrW(1489) & ChrW(1489) & " " & ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1489) & ChrW(1497) & ChrW(1496) & ChrW(1493) & ChrW(1495)
+240     shp.TextFrame.TextRange.Font.Size = 34
+250     shp.TextFrame.TextRange.Font.Bold = True
+260     shp.TextFrame.TextRange.Font.Color.RGB = RGB(0, 130, 60)
+270     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+280     shp.TextFrame.WordWrap = True
 
         ' Bottom gold line
-310     Set shp = ppSlide.Shapes.AddShape(1, 36, slideH - 50, slideW - 72, 6)
-320     shp.Fill.ForeColor.RGB = RGB(200, 160, 30)
-330     shp.Line.Visible = False
+290     Set shp = ppSlide.Shapes.AddShape(1, 50, slideH - 35, slideW - 100, 5)
+300     shp.Fill.ForeColor.RGB = RGB(200, 160, 30)
+310     shp.Line.Visible = False
 
-340     Exit Sub
+320     Exit Sub
 ERR_HANDLER:
-350     Err.Raise Err.Number, "BuildTitleSlide:" & Erl, Err.Description
+330     Err.Raise Err.Number, "BuildTitleSlide:" & Erl, Err.Description
 End Sub
 
 
@@ -2633,16 +2640,16 @@ Private Sub BuildTotalSlideFromImage(ByVal ppSlide As Object, ByVal imgPath As S
         Dim shp As Object
 
         ' Title textbox
-20      Set shp = ppSlide.Shapes.AddTextbox(1, 20, 20, slideW - 40, 80)
-30      shp.TextFrame.TextRange.Text = ChrW(1505) & ChrW(1492) & Chr(34) & ChrW(1499) & " " & ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1493) & ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & vbCrLf & refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal
-40      shp.TextFrame.TextRange.Font.Size = 26
+20      Set shp = ppSlide.Shapes.AddTextbox(1, 20, 10, slideW - 40, 50)
+30      shp.TextFrame.TextRange.Text = ChrW(1505) & ChrW(1492) & Chr(34) & ChrW(1499) & " " & ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1493) & ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & " - " & refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal
+40      shp.TextFrame.TextRange.Font.Size = 24
 50      shp.TextFrame.TextRange.Font.Bold = True
 60      shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
 70      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 80      shp.TextFrame.WordWrap = True
 
-        ' Insert chart image
-90      ppSlide.Shapes.AddPicture imgPath, 0, 1, 30, 120, slideW - 60, 500
+        ' Insert chart image (landscape: wider)
+90      ppSlide.Shapes.AddPicture imgPath, 0, 1, 80, 70, slideW - 160, 440
 
 100     Exit Sub
 ERR_HANDLER:
@@ -2651,40 +2658,72 @@ End Sub
 
 
 ' ============================================================================
-' HELPER: Build Comparison Slide from pre-exported images + data table
+' HELPER: Build a single chart slide (one chart image + title)
 ' ============================================================================
-Private Sub BuildCompSlideFromImages(ByVal ppSlide As Object, ByVal sheetName As String, ByVal imgPrem As String, ByVal imgComm As String, ByVal yearVal As String, ByVal refYear As String, ByVal slideTitle As String, ByVal slideW As Single, ByVal slideH As Single)
+Private Sub BuildChartSlide(ByVal ppSlide As Object, ByVal imgPath As String, ByVal chartTitle As String, ByVal yearVal As String, ByVal refYear As String, ByVal slideW As Single)
+
+10      On Error GoTo ERR_HANDLER
+
+        Dim shp As Object
+
+        ' Title
+20      Set shp = ppSlide.Shapes.AddTextbox(1, 20, 10, slideW - 40, 50)
+30      shp.TextFrame.TextRange.Text = chartTitle & " - " & refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal
+40      shp.TextFrame.TextRange.Font.Size = 22
+50      shp.TextFrame.TextRange.Font.Bold = True
+60      shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
+70      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+80      shp.TextFrame.WordWrap = True
+
+        ' Insert chart image
+90      ppSlide.Shapes.AddPicture imgPath, 0, 1, 60, 65, slideW - 120, 450
+
+100     Exit Sub
+ERR_HANDLER:
+110     Err.Raise Err.Number, "BuildChartSlide:" & Erl, Err.Description
+End Sub
+
+
+' ============================================================================
+' HELPER: Build a data table slide
+' 13 cols: name | premRef | premCur | prem% | docsRef | docsCur | docs% |
+'          insuredRef | insuredCur | ins% | commRef | commCur | comm%
+' ============================================================================
+Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, ByVal slideTitle As String, ByVal yearVal As String, ByVal refYear As String, ByVal slideW As Single, ByVal slideH As Single)
 
 10      On Error GoTo ERR_HANDLER
 
         Dim ws As Worksheet
         Dim lastRow As Long
-        Dim dataRows As Long
         Dim r As Long
         Dim shp As Object
 20      Set ws = ThisWorkbook.Worksheets(sheetName)
 30      lastRow = ws.Cells(ws.Rows.Count, 1).End(xlUp).Row
-40      dataRows = lastRow - 2
 
-        ' Read data into arrays
+        Dim nItems As Long
+40      nItems = lastRow - 3
+50      If nItems < 1 Then Exit Sub
+
+        ' Read data from sheet
         Dim arrNames() As String
         Dim arrPremR() As Double
         Dim arrPremC() As Double
-        Dim arrCommR() As Double
-        Dim arrCommC() As Double
         Dim arrDocR() As Long
         Dim arrDocC() As Long
-        Dim nItems As Long
-50      nItems = dataRows - 1
-60      If nItems < 1 Then Exit Sub
+        Dim arrInsR() As Long
+        Dim arrInsC() As Long
+        Dim arrCommR() As Double
+        Dim arrCommC() As Double
 
-70      ReDim arrNames(1 To nItems)
-80      ReDim arrPremR(1 To nItems)
-82      ReDim arrPremC(1 To nItems)
-90      ReDim arrCommR(1 To nItems)
-92      ReDim arrCommC(1 To nItems)
-100     ReDim arrDocR(1 To nItems)
-102     ReDim arrDocC(1 To nItems)
+60      ReDim arrNames(1 To nItems)
+70      ReDim arrPremR(1 To nItems)
+72      ReDim arrPremC(1 To nItems)
+80      ReDim arrDocR(1 To nItems)
+82      ReDim arrDocC(1 To nItems)
+90      ReDim arrInsR(1 To nItems)
+92      ReDim arrInsC(1 To nItems)
+100     ReDim arrCommR(1 To nItems)
+102     ReDim arrCommC(1 To nItems)
 
         Dim idx As Long
 110     idx = 0
@@ -2696,36 +2735,23 @@ Private Sub BuildCompSlideFromImages(ByVal ppSlide As Object, ByVal sheetName As
 170         arrPremC(idx) = CDbl(ws.Cells(r, 3).Value2)
 180         arrDocR(idx) = CLng(ws.Cells(r, 5).Value2)
 190         arrDocC(idx) = CLng(ws.Cells(r, 6).Value2)
-200         arrCommR(idx) = CDbl(ws.Cells(r, 14).Value2)
-210         arrCommC(idx) = CDbl(ws.Cells(r, 15).Value2)
-220     Next r
-230     nItems = idx
+200         arrInsR(idx) = CLng(ws.Cells(r, 8).Value2)
+210         arrInsC(idx) = CLng(ws.Cells(r, 9).Value2)
+220         arrCommR(idx) = CDbl(ws.Cells(r, 14).Value2)
+230         arrCommC(idx) = CDbl(ws.Cells(r, 15).Value2)
+240     Next r
+250     nItems = idx
 
-        ' ---- Chart 1 title: Premiums ----
-240     Set shp = ppSlide.Shapes.AddTextbox(1, 20, 10, slideW - 40, 50)
-250     shp.TextFrame.TextRange.Text = ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & slideTitle & vbCrLf & refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal
-260     shp.TextFrame.TextRange.Font.Size = 16
-270     shp.TextFrame.TextRange.Font.Bold = True
-280     shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
-290     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-300     shp.TextFrame.WordWrap = True
+        ' Title
+260     Set shp = ppSlide.Shapes.AddTextbox(1, 20, 5, slideW - 40, 35)
+270     shp.TextFrame.TextRange.Text = slideTitle & " - " & ChrW(1496) & ChrW(1489) & ChrW(1500) & ChrW(1514) & " " & ChrW(1504) & ChrW(1514) & ChrW(1493) & ChrW(1504) & ChrW(1497) & ChrW(1501)
+280     shp.TextFrame.TextRange.Font.Size = 18
+290     shp.TextFrame.TextRange.Font.Bold = True
+300     shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
+310     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+320     shp.TextFrame.WordWrap = True
 
-        ' Insert premium chart image
-310     ppSlide.Shapes.AddPicture imgPrem, 0, 1, 20, 65, slideW - 40, 260
-
-        ' ---- Chart 2 title: Commissions ----
-320     Set shp = ppSlide.Shapes.AddTextbox(1, 20, 330, slideW - 40, 50)
-330     shp.TextFrame.TextRange.Text = ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & slideTitle & vbCrLf & refYear & " " & ChrW(1502) & ChrW(1493) & ChrW(1500) & " " & yearVal
-340     shp.TextFrame.TextRange.Font.Size = 16
-350     shp.TextFrame.TextRange.Font.Bold = True
-360     shp.TextFrame.TextRange.Font.Color.RGB = RGB(50, 50, 50)
-370     shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-380     shp.TextFrame.WordWrap = True
-
-        ' Insert commission chart image
-390     ppSlide.Shapes.AddPicture imgComm, 0, 1, 20, 385, slideW - 40, 260
-
-        ' ---- Data Table ----
+        ' Table: nItems + 3 rows (2 headers + data + total), 13 cols
         Dim tblRows As Long
         Dim tblCols As Long
         Dim tblTop As Single
@@ -2736,157 +2762,216 @@ Private Sub BuildCompSlideFromImages(ByVal ppSlide As Object, ByVal sheetName As
         Dim ppTbl As Object
         Dim tbl As Object
         Dim c As Long
-        Dim dataRow As Long
         Dim tblR As Long
         Dim blueClr As Long
         Dim lightBlue As Long
         Dim pctLabel As String
 
-400     tblRows = nItems + 3
-410     tblCols = 9
-420     tblTop = 660
-430     tblLeft = 20
-440     tblWidth = slideW - 40
-450     rowH = 18
-460     tblHeight = tblRows * rowH
+330     tblRows = nItems + 3
+340     tblCols = 13
+350     tblTop = 45
+360     tblLeft = 10
+370     tblWidth = slideW - 20
+380     rowH = 16
+390     If tblRows > 20 Then rowH = 14
+400     tblHeight = tblRows * rowH
 
-470     Set ppTbl = ppSlide.Shapes.AddTable(tblRows, tblCols, tblLeft, tblTop, tblWidth, tblHeight)
-480     Set tbl = ppTbl.Table
+410     Set ppTbl = ppSlide.Shapes.AddTable(tblRows, tblCols, tblLeft, tblTop, tblWidth, tblHeight)
+420     Set tbl = ppTbl.Table
 
-        ' Column widths
-490     tbl.Columns(1).Width = tblWidth * 0.18
-500     tbl.Columns(2).Width = tblWidth * 0.1
-510     tbl.Columns(3).Width = tblWidth * 0.1
-520     tbl.Columns(4).Width = tblWidth * 0.08
-530     tbl.Columns(5).Width = tblWidth * 0.12
-540     tbl.Columns(6).Width = tblWidth * 0.12
-550     tbl.Columns(7).Width = tblWidth * 0.08
-560     tbl.Columns(8).Width = tblWidth * 0.11
-570     tbl.Columns(9).Width = tblWidth * 0.11
+        ' Column widths (13 cols)
+430     tbl.Columns(1).Width = tblWidth * 0.13
+440     tbl.Columns(2).Width = tblWidth * 0.08
+450     tbl.Columns(3).Width = tblWidth * 0.08
+460     tbl.Columns(4).Width = tblWidth * 0.06
+470     tbl.Columns(5).Width = tblWidth * 0.07
+480     tbl.Columns(6).Width = tblWidth * 0.07
+490     tbl.Columns(7).Width = tblWidth * 0.06
+500     tbl.Columns(8).Width = tblWidth * 0.07
+510     tbl.Columns(9).Width = tblWidth * 0.07
+520     tbl.Columns(10).Width = tblWidth * 0.06
+530     tbl.Columns(11).Width = tblWidth * 0.09
+540     tbl.Columns(12).Width = tblWidth * 0.09
+550     tbl.Columns(13).Width = tblWidth * 0.07
 
-580     blueClr = RGB(0, 100, 170)
-590     lightBlue = RGB(180, 210, 240)
-        ' shinuy
-600     pctLabel = ChrW(1513) & ChrW(1497) & ChrW(1504) & ChrW(1493) & ChrW(1497)
+560     blueClr = RGB(0, 100, 170)
+570     lightBlue = RGB(180, 210, 240)
+580     pctLabel = ChrW(1513) & ChrW(1497) & ChrW(1504) & ChrW(1493) & ChrW(1497)
 
-        ' Header row 1 - merged categories
-610     tbl.Cell(1, 1).Shape.TextFrame.TextRange.Text = ""
-        ' "amulot" = commissions
-620     tbl.Cell(1, 2).Shape.TextFrame.TextRange.Text = ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514)
-630     tbl.Cell(1, 5).Shape.TextFrame.TextRange.Text = ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514)
-        ' "mismachim" = documents
-640     tbl.Cell(1, 8).Shape.TextFrame.TextRange.Text = ChrW(1502) & ChrW(1505) & ChrW(1502) & ChrW(1499) & ChrW(1497) & ChrW(1501)
+        ' Header row 1 - category names
+590     tbl.Cell(1, 1).Shape.TextFrame.TextRange.Text = ""
+        ' premiot
+600     tbl.Cell(1, 2).Shape.TextFrame.TextRange.Text = ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514)
+        ' mismachim
+610     tbl.Cell(1, 5).Shape.TextFrame.TextRange.Text = ChrW(1502) & ChrW(1505) & ChrW(1502) & ChrW(1499) & ChrW(1497) & ChrW(1501)
+        ' mevutachim
+620     tbl.Cell(1, 8).Shape.TextFrame.TextRange.Text = ChrW(1502) & ChrW(1489) & ChrW(1493) & ChrW(1496) & ChrW(1495) & ChrW(1497) & ChrW(1501)
+        ' amulot
+630     tbl.Cell(1, 11).Shape.TextFrame.TextRange.Text = ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514)
 
-        ' Header row 2 - column names
-650     tbl.Cell(2, 1).Shape.TextFrame.TextRange.Text = ""
-660     tbl.Cell(2, 2).Shape.TextFrame.TextRange.Text = refYear
-670     tbl.Cell(2, 3).Shape.TextFrame.TextRange.Text = yearVal
-680     tbl.Cell(2, 4).Shape.TextFrame.TextRange.Text = pctLabel
-690     tbl.Cell(2, 5).Shape.TextFrame.TextRange.Text = refYear
-700     tbl.Cell(2, 6).Shape.TextFrame.TextRange.Text = yearVal
-710     tbl.Cell(2, 7).Shape.TextFrame.TextRange.Text = pctLabel
-720     tbl.Cell(2, 8).Shape.TextFrame.TextRange.Text = refYear
-730     tbl.Cell(2, 9).Shape.TextFrame.TextRange.Text = yearVal
+        ' Header row 2 - year sub-headers
+640     tbl.Cell(2, 1).Shape.TextFrame.TextRange.Text = ""
+650     tbl.Cell(2, 2).Shape.TextFrame.TextRange.Text = refYear
+660     tbl.Cell(2, 3).Shape.TextFrame.TextRange.Text = yearVal
+670     tbl.Cell(2, 4).Shape.TextFrame.TextRange.Text = pctLabel
+680     tbl.Cell(2, 5).Shape.TextFrame.TextRange.Text = refYear
+690     tbl.Cell(2, 6).Shape.TextFrame.TextRange.Text = yearVal
+700     tbl.Cell(2, 7).Shape.TextFrame.TextRange.Text = pctLabel
+710     tbl.Cell(2, 8).Shape.TextFrame.TextRange.Text = refYear
+720     tbl.Cell(2, 9).Shape.TextFrame.TextRange.Text = yearVal
+730     tbl.Cell(2, 10).Shape.TextFrame.TextRange.Text = pctLabel
+740     tbl.Cell(2, 11).Shape.TextFrame.TextRange.Text = refYear
+750     tbl.Cell(2, 12).Shape.TextFrame.TextRange.Text = yearVal
+760     tbl.Cell(2, 13).Shape.TextFrame.TextRange.Text = pctLabel
 
         ' Format header rows
-740     For c = 1 To tblCols
-750         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 8
-760         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Bold = True
-770         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
-780         tbl.Cell(1, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-790         tbl.Cell(1, c).Shape.Fill.ForeColor.RGB = blueClr
-800         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 8
-810         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Bold = True
-820         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
-830         tbl.Cell(2, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-840         tbl.Cell(2, c).Shape.Fill.ForeColor.RGB = blueClr
-850     Next c
+770     For c = 1 To tblCols
+780         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 7
+790         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Bold = True
+800         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
+810         tbl.Cell(1, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+820         tbl.Cell(1, c).Shape.Fill.ForeColor.RGB = blueClr
+830         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 7
+840         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Bold = True
+850         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
+860         tbl.Cell(2, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+870         tbl.Cell(2, c).Shape.Fill.ForeColor.RGB = blueClr
+880     Next c
 
         ' Data rows
-        Dim commChg As Double
-        Dim premChg As Double
-860     For dataRow = 1 To nItems
-870         tblR = dataRow + 2
-880         tbl.Cell(tblR, 1).Shape.TextFrame.TextRange.Text = arrNames(dataRow)
-890         tbl.Cell(tblR, 2).Shape.TextFrame.TextRange.Text = Format$(arrCommR(dataRow), "#,##0")
-900         tbl.Cell(tblR, 3).Shape.TextFrame.TextRange.Text = Format$(arrCommC(dataRow), "#,##0")
-            ' Commission change %
-910         If arrCommR(dataRow) <> 0 Then
-920             commChg = (arrCommC(dataRow) - arrCommR(dataRow)) / Abs(arrCommR(dataRow)) * 100
-930             tbl.Cell(tblR, 4).Shape.TextFrame.TextRange.Text = Format$(commChg, "0.0") & "%"
-940         Else
-950             tbl.Cell(tblR, 4).Shape.TextFrame.TextRange.Text = "-"
-960         End If
-970         tbl.Cell(tblR, 5).Shape.TextFrame.TextRange.Text = Format$(arrPremR(dataRow), "#,##0")
-980         tbl.Cell(tblR, 6).Shape.TextFrame.TextRange.Text = Format$(arrPremC(dataRow), "#,##0")
-            ' Premium change %
-990         If arrPremR(dataRow) <> 0 Then
-1000            premChg = (arrPremC(dataRow) - arrPremR(dataRow)) / Abs(arrPremR(dataRow)) * 100
-1010            tbl.Cell(tblR, 7).Shape.TextFrame.TextRange.Text = Format$(premChg, "0.0") & "%"
-1020        Else
-1030            tbl.Cell(tblR, 7).Shape.TextFrame.TextRange.Text = "-"
-1040        End If
-1050        tbl.Cell(tblR, 8).Shape.TextFrame.TextRange.Text = Format$(arrDocR(dataRow), "#,##0")
-1060        tbl.Cell(tblR, 9).Shape.TextFrame.TextRange.Text = Format$(arrDocC(dataRow), "#,##0")
+        Dim chgVal As Double
+890     For idx = 1 To nItems
+900         tblR = idx + 2
+910         tbl.Cell(tblR, 1).Shape.TextFrame.TextRange.Text = arrNames(idx)
+            ' Premiums
+920         tbl.Cell(tblR, 2).Shape.TextFrame.TextRange.Text = Format$(arrPremR(idx), "#,##0")
+930         tbl.Cell(tblR, 3).Shape.TextFrame.TextRange.Text = Format$(arrPremC(idx), "#,##0")
+940         If arrPremR(idx) <> 0 Then
+950             chgVal = (arrPremC(idx) - arrPremR(idx)) / Abs(arrPremR(idx)) * 100
+960             tbl.Cell(tblR, 4).Shape.TextFrame.TextRange.Text = Format$(chgVal, "0.0") & "%"
+970         Else
+980             tbl.Cell(tblR, 4).Shape.TextFrame.TextRange.Text = "-"
+990         End If
+            ' Documents
+1000        tbl.Cell(tblR, 5).Shape.TextFrame.TextRange.Text = Format$(arrDocR(idx), "#,##0")
+1010        tbl.Cell(tblR, 6).Shape.TextFrame.TextRange.Text = Format$(arrDocC(idx), "#,##0")
+1020        If arrDocR(idx) <> 0 Then
+1030            chgVal = (CDbl(arrDocC(idx)) - CDbl(arrDocR(idx))) / Abs(CDbl(arrDocR(idx))) * 100
+1040            tbl.Cell(tblR, 7).Shape.TextFrame.TextRange.Text = Format$(chgVal, "0.0") & "%"
+1050        Else
+1060            tbl.Cell(tblR, 7).Shape.TextFrame.TextRange.Text = "-"
+1070        End If
+            ' Insured
+1080        tbl.Cell(tblR, 8).Shape.TextFrame.TextRange.Text = Format$(arrInsR(idx), "#,##0")
+1090        tbl.Cell(tblR, 9).Shape.TextFrame.TextRange.Text = Format$(arrInsC(idx), "#,##0")
+1100        If arrInsR(idx) <> 0 Then
+1110            chgVal = (CDbl(arrInsC(idx)) - CDbl(arrInsR(idx))) / Abs(CDbl(arrInsR(idx))) * 100
+1120            tbl.Cell(tblR, 10).Shape.TextFrame.TextRange.Text = Format$(chgVal, "0.0") & "%"
+1130        Else
+1140            tbl.Cell(tblR, 10).Shape.TextFrame.TextRange.Text = "-"
+1150        End If
+            ' Commissions
+1160        tbl.Cell(tblR, 11).Shape.TextFrame.TextRange.Text = Format$(arrCommR(idx), "#,##0")
+1170        tbl.Cell(tblR, 12).Shape.TextFrame.TextRange.Text = Format$(arrCommC(idx), "#,##0")
+1180        If arrCommR(idx) <> 0 Then
+1190            chgVal = (arrCommC(idx) - arrCommR(idx)) / Abs(arrCommR(idx)) * 100
+1200            tbl.Cell(tblR, 13).Shape.TextFrame.TextRange.Text = Format$(chgVal, "0.0") & "%"
+1210        Else
+1220            tbl.Cell(tblR, 13).Shape.TextFrame.TextRange.Text = "-"
+1230        End If
 
             ' Format data cells
-1070        For c = 1 To tblCols
-1080            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 7
-1090            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-1100            If dataRow Mod 2 = 0 Then
-1110                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = lightBlue
-1120            Else
-1130                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = RGB(255, 255, 255)
-1140            End If
-1150        Next c
-1160    Next dataRow
+1240        For c = 1 To tblCols
+1250            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 6
+1260            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+1270            If idx Mod 2 = 0 Then
+1280                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = lightBlue
+1290            Else
+1300                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = RGB(255, 255, 255)
+1310            End If
+1320        Next c
+1330    Next idx
 
-        ' Total row (last row in table)
+        ' Total row
         Dim totR As Long
-        Dim totPremR As Double
-        Dim totPremC As Double
-        Dim totCommR As Double
-        Dim totCommC As Double
-        Dim totDocR As Long
-        Dim totDocC As Long
-1170    totR = nItems + 3
-1180    totPremR = CDbl(ws.Cells(lastRow, 2).Value2)
-1190    totPremC = CDbl(ws.Cells(lastRow, 3).Value2)
-1200    totCommR = CDbl(ws.Cells(lastRow, 14).Value2)
-1210    totCommC = CDbl(ws.Cells(lastRow, 15).Value2)
-1220    totDocR = CLng(ws.Cells(lastRow, 5).Value2)
-1230    totDocC = CLng(ws.Cells(lastRow, 6).Value2)
+        Dim totPR As Double
+        Dim totPC As Double
+        Dim totCR As Double
+        Dim totCC As Double
+        Dim totDR As Long
+        Dim totDC As Long
+        Dim totIR As Long
+        Dim totIC As Long
+1340    totR = nItems + 3
+1350    totPR = CDbl(ws.Cells(lastRow, 2).Value2)
+1360    totPC = CDbl(ws.Cells(lastRow, 3).Value2)
+1370    totDR = CLng(ws.Cells(lastRow, 5).Value2)
+1380    totDC = CLng(ws.Cells(lastRow, 6).Value2)
+1390    totIR = CLng(ws.Cells(lastRow, 8).Value2)
+1400    totIC = CLng(ws.Cells(lastRow, 9).Value2)
+1410    totCR = CDbl(ws.Cells(lastRow, 14).Value2)
+1420    totCC = CDbl(ws.Cells(lastRow, 15).Value2)
 
         ' "sach hakol"
-1240    tbl.Cell(totR, 1).Shape.TextFrame.TextRange.Text = ChrW(1505) & ChrW(1499) & ChrW(1493) & ChrW(1501) & " " & ChrW(1492) & ChrW(1499) & ChrW(1500)
-1250    tbl.Cell(totR, 2).Shape.TextFrame.TextRange.Text = Format$(totCommR, "#,##0")
-1260    tbl.Cell(totR, 3).Shape.TextFrame.TextRange.Text = Format$(totCommC, "#,##0")
-1270    If totCommR <> 0 Then
-1280        tbl.Cell(totR, 4).Shape.TextFrame.TextRange.Text = Format$((totCommC - totCommR) / Abs(totCommR) * 100, "0.0") & "%"
-1290    Else
-1300        tbl.Cell(totR, 4).Shape.TextFrame.TextRange.Text = "-"
-1310    End If
-1320    tbl.Cell(totR, 5).Shape.TextFrame.TextRange.Text = Format$(totPremR, "#,##0")
-1330    tbl.Cell(totR, 6).Shape.TextFrame.TextRange.Text = Format$(totPremC, "#,##0")
-1340    If totPremR <> 0 Then
-1350        tbl.Cell(totR, 7).Shape.TextFrame.TextRange.Text = Format$((totPremC - totPremR) / Abs(totPremR) * 100, "0.0") & "%"
-1360    Else
-1370        tbl.Cell(totR, 7).Shape.TextFrame.TextRange.Text = "-"
-1380    End If
-1390    tbl.Cell(totR, 8).Shape.TextFrame.TextRange.Text = Format$(totDocR, "#,##0")
-1400    tbl.Cell(totR, 9).Shape.TextFrame.TextRange.Text = Format$(totDocC, "#,##0")
+1430    tbl.Cell(totR, 1).Shape.TextFrame.TextRange.Text = ChrW(1505) & ChrW(1499) & ChrW(1493) & ChrW(1501) & " " & ChrW(1492) & ChrW(1499) & ChrW(1500)
+1440    tbl.Cell(totR, 2).Shape.TextFrame.TextRange.Text = Format$(totPR, "#,##0")
+1450    tbl.Cell(totR, 3).Shape.TextFrame.TextRange.Text = Format$(totPC, "#,##0")
+1460    If totPR <> 0 Then
+1470        tbl.Cell(totR, 4).Shape.TextFrame.TextRange.Text = Format$((totPC - totPR) / Abs(totPR) * 100, "0.0") & "%"
+1480    Else
+1490        tbl.Cell(totR, 4).Shape.TextFrame.TextRange.Text = "-"
+1500    End If
+1510    tbl.Cell(totR, 5).Shape.TextFrame.TextRange.Text = Format$(totDR, "#,##0")
+1520    tbl.Cell(totR, 6).Shape.TextFrame.TextRange.Text = Format$(totDC, "#,##0")
+1530    If totDR <> 0 Then
+1540        tbl.Cell(totR, 7).Shape.TextFrame.TextRange.Text = Format$((CDbl(totDC) - CDbl(totDR)) / Abs(CDbl(totDR)) * 100, "0.0") & "%"
+1550    Else
+1560        tbl.Cell(totR, 7).Shape.TextFrame.TextRange.Text = "-"
+1570    End If
+1580    tbl.Cell(totR, 8).Shape.TextFrame.TextRange.Text = Format$(totIR, "#,##0")
+1590    tbl.Cell(totR, 9).Shape.TextFrame.TextRange.Text = Format$(totIC, "#,##0")
+1600    If totIR <> 0 Then
+1610        tbl.Cell(totR, 10).Shape.TextFrame.TextRange.Text = Format$((CDbl(totIC) - CDbl(totIR)) / Abs(CDbl(totIR)) * 100, "0.0") & "%"
+1620    Else
+1630        tbl.Cell(totR, 10).Shape.TextFrame.TextRange.Text = "-"
+1640    End If
+1650    tbl.Cell(totR, 11).Shape.TextFrame.TextRange.Text = Format$(totCR, "#,##0")
+1660    tbl.Cell(totR, 12).Shape.TextFrame.TextRange.Text = Format$(totCC, "#,##0")
+1670    If totCR <> 0 Then
+1680        tbl.Cell(totR, 13).Shape.TextFrame.TextRange.Text = Format$((totCC - totCR) / Abs(totCR) * 100, "0.0") & "%"
+1690    Else
+1700        tbl.Cell(totR, 13).Shape.TextFrame.TextRange.Text = "-"
+1710    End If
 
         ' Format total row
-1410    For c = 1 To tblCols
-1420        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 8
-1430        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Bold = True
-1440        tbl.Cell(totR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-1450        tbl.Cell(totR, c).Shape.Fill.ForeColor.RGB = RGB(220, 230, 240)
-1460    Next c
+1720    For c = 1 To tblCols
+1730        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 7
+1740        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Bold = True
+1750        tbl.Cell(totR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+1760        tbl.Cell(totR, c).Shape.Fill.ForeColor.RGB = RGB(220, 230, 240)
+1770    Next c
 
-1470    Exit Sub
+1780    Exit Sub
 ERR_HANDLER:
-1480    Err.Raise Err.Number, "BuildCompSlideFromImages(" & sheetName & "):" & Erl, Err.Description
+1790    Err.Raise Err.Number, "BuildTableSlide(" & sheetName & "):" & Erl, Err.Description
+End Sub
+
+
+' ============================================================================
+' HELPER: Add page number to slide
+' ============================================================================
+Private Sub AddPageNumber(ByVal ppSlide As Object, ByVal pageNum As Long, ByVal totalPages As Long, ByVal slideW As Single, ByVal slideH As Single)
+
+10      On Error Resume Next
+
+        Dim shp As Object
+20      Set shp = ppSlide.Shapes.AddTextbox(1, slideW - 80, slideH - 25, 70, 20)
+30      shp.TextFrame.TextRange.Text = pageNum & " / " & totalPages
+40      shp.TextFrame.TextRange.Font.Size = 10
+50      shp.TextFrame.TextRange.Font.Color.RGB = RGB(120, 120, 120)
+60      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+70      shp.TextFrame.WordWrap = False
+
 End Sub
 
 
