@@ -2269,13 +2269,23 @@ Public Sub BuildPresentation()
         Dim si As Long
         Dim imgFiles() As String
 470     ReDim imgFiles(1 To sheetCount * 2)
-480     For si = 1 To sheetCount
-490         imgFiles(si * 2 - 1) = tmpPath & "levav_prem_" & si & ".gif"
-500         imgFiles(si * 2) = tmpPath & "levav_comm_" & si & ".gif"
-510         ExportCompCharts sheetList(si), imgFiles(si * 2 - 1), imgFiles(si * 2), yearVal, refYear
-520     Next si
+        Dim exportOK() As Boolean
+480     ReDim exportOK(1 To sheetCount)
+490     For si = 1 To sheetCount
+500         imgFiles(si * 2 - 1) = tmpPath & "levav_prem_" & si & ".gif"
+510         imgFiles(si * 2) = tmpPath & "levav_comm_" & si & ".gif"
+520         On Error Resume Next
+530         ExportCompCharts sheetList(si), imgFiles(si * 2 - 1), imgFiles(si * 2), yearVal, refYear
+540         If Err.Number = 0 Then
+550             exportOK(si) = True
+560         Else
+570             exportOK(si) = False
+572             Err.Clear
+580         End If
+590         On Error GoTo ERR_HANDLER
+600     Next si
 
-530     DoEvents
+605     DoEvents
 
         ' ================================================================
         ' PHASE 2: Open PowerPoint and build slides
@@ -2283,99 +2293,98 @@ Public Sub BuildPresentation()
         Dim ppApp As Object
         Dim ppPres As Object
         Dim ppSlide As Object
-540     Set ppApp = CreateObject("PowerPoint.Application")
-550     ppApp.Visible = True
-560     Set ppPres = ppApp.Presentations.Add
+610     Set ppApp = CreateObject("PowerPoint.Application")
+615     ppApp.Visible = True
+620     Set ppPres = ppApp.Presentations.Add
 
         ' Set LANDSCAPE slide size (13.33" x 7.5")
-570     ppPres.PageSetup.SlideWidth = 960
-580     ppPres.PageSetup.SlideHeight = 540
+625     ppPres.PageSetup.SlideWidth = 960
+630     ppPres.PageSetup.SlideHeight = 540
 
         Dim slideIdx As Long
         Dim slideW As Single
         Dim slideH As Single
-590     slideIdx = 0
-600     slideW = 960
-610     slideH = 540
+635     slideIdx = 0
+640     slideW = 960
+645     slideH = 540
 
         ' Slide title names (Hebrew)
         Dim titleNames(1 To 6) As String
-620     titleNames(1) = ChrW(1495) & ChrW(1493) & ChrW(1491) & ChrW(1513) & ChrW(1497) & ChrW(1501)
-630     titleNames(2) = ChrW(1495) & ChrW(1489) & ChrW(1512) & ChrW(1493) & ChrW(1514)
-640     titleNames(3) = ChrW(1506) & ChrW(1504) & ChrW(1507) & " " & ChrW(1502) & ChrW(1512) & ChrW(1499) & ChrW(1494)
-650     titleNames(4) = ChrW(1496) & ChrW(1500) & ChrW(1512) & ChrW(1497) & ChrW(1493) & ChrW(1514)
-660     titleNames(5) = ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1497) & ChrW(1501)
+650     titleNames(1) = ChrW(1495) & ChrW(1493) & ChrW(1491) & ChrW(1513) & ChrW(1497) & ChrW(1501)
+655     titleNames(2) = ChrW(1495) & ChrW(1489) & ChrW(1512) & ChrW(1493) & ChrW(1514)
+660     titleNames(3) = ChrW(1506) & ChrW(1504) & ChrW(1507) & " " & ChrW(1502) & ChrW(1512) & ChrW(1499) & ChrW(1494)
+665     titleNames(4) = ChrW(1496) & ChrW(1500) & ChrW(1512) & ChrW(1497) & ChrW(1493) & ChrW(1514)
+670     titleNames(5) = ChrW(1505) & ChrW(1493) & ChrW(1499) & ChrW(1504) & ChrW(1497) & ChrW(1501)
 
         ' SLIDE 1: Title
-670     slideIdx = slideIdx + 1
+675     slideIdx = slideIdx + 1
 680     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-690     BuildTitleSlide ppSlide, yearVal, refYear, periodDesc, slideW, slideH
+685     BuildTitleSlide ppSlide, yearVal, refYear, periodDesc, slideW, slideH
 
         ' SLIDE 2: Total Summary chart
-700     slideIdx = slideIdx + 1
-710     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-720     BuildTotalSlideFromImage ppSlide, imgTotal, yearVal, refYear, slideW
+690     slideIdx = slideIdx + 1
+695     Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+700     BuildTotalSlideFromImage ppSlide, imgTotal, yearVal, refYear, slideW
 
         ' For each comparison sheet: 3 slides (prem chart, comm chart, table)
 730     For si = 1 To sheetCount
-            ' Slide: Premium chart
-740         slideIdx = slideIdx + 1
-750         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-760         BuildChartSlide ppSlide, imgFiles(si * 2 - 1), ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
-
-            ' Slide: Commission chart
-770         slideIdx = slideIdx + 1
-780         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-790         BuildChartSlide ppSlide, imgFiles(si * 2), ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
-
-            ' Slide: Data table
-800         slideIdx = slideIdx + 1
-810         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
-820         BuildTableSlide ppSlide, sheetList(si), titleNames(si), yearVal, refYear, slideW, slideH
-830     Next si
+740         If exportOK(si) Then
+                ' Slide: Premium chart
+750             slideIdx = slideIdx + 1
+760             Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+770             BuildChartSlide ppSlide, imgFiles(si * 2 - 1), ChrW(1508) & ChrW(1512) & ChrW(1502) & ChrW(1497) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
+                ' Slide: Commission chart
+780             slideIdx = slideIdx + 1
+790             Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+800             BuildChartSlide ppSlide, imgFiles(si * 2), ChrW(1506) & ChrW(1502) & ChrW(1500) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1508) & ChrW(1497) & " " & titleNames(si), yearVal, refYear, slideW
+810         End If
+            ' Slide: Data table (always, even if charts failed)
+820         slideIdx = slideIdx + 1
+830         Set ppSlide = ppPres.Slides.Add(slideIdx, 12)
+840         BuildTableSlide ppSlide, sheetList(si), titleNames(si), yearVal, refYear, slideW, slideH
+850     Next si
 
         ' Add page numbers to all slides
         Dim pg As Long
-840     For pg = 1 To ppPres.Slides.Count
-850         AddPageNumber ppPres.Slides(pg), pg, ppPres.Slides.Count, slideW, slideH
-860     Next pg
+860     For pg = 1 To ppPres.Slides.Count
+870         AddPageNumber ppPres.Slides(pg), pg, ppPres.Slides.Count, slideW, slideH
+880     Next pg
 
         ' Save presentation
         Dim savePath As String
-870     savePath = ThisWorkbook.Path & "\" & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492) & " " & yearVal & ".pptx"
-880     ppPres.SaveAs savePath
-890     ppPres.Close
-900     ppApp.Quit
+890     savePath = ThisWorkbook.Path & "\" & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1492) & ChrW(1504) & ChrW(1492) & ChrW(1500) & ChrW(1492) & " " & yearVal & ".pptx"
+900     ppPres.SaveAs savePath
+        ' Leave presentation open for user to view
 910     Set ppPres = Nothing
 920     Set ppApp = Nothing
 
         ' Cleanup temp images
-930     On Error Resume Next
-940     Kill imgTotal
-950     For si = 1 To sheetCount * 2
-960         Kill imgFiles(si)
-970     Next si
-980     On Error GoTo ERR_HANDLER
+950     On Error Resume Next
+960     Kill imgTotal
+970     For si = 1 To sheetCount * 2
+980         Kill imgFiles(si)
+990     Next si
+1000    On Error GoTo ERR_HANDLER
 
         ' Clear processing message
-990     With wsMain.Range("B8")
-1000        .Value = ""
-1010        .Interior.ColorIndex = xlNone
-1020    End With
+1010    With wsMain.Range("B8")
+1020        .Value = ""
+1030        .Interior.ColorIndex = xlNone
+1040    End With
 
         ' Success message
-1030    MsgBoxU ChrW(1492) & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1504) & ChrW(1493) & ChrW(1510) & ChrW(1512) & ChrW(1492) & " " & ChrW(1489) & ChrW(1492) & ChrW(1510) & ChrW(1500) & ChrW(1495) & ChrW(1492) & "!" & vbCrLf & savePath, vbInformation
+1050    MsgBoxU ChrW(1492) & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & " " & ChrW(1504) & ChrW(1493) & ChrW(1510) & ChrW(1512) & ChrW(1492) & " " & ChrW(1489) & ChrW(1492) & ChrW(1510) & ChrW(1500) & ChrW(1495) & ChrW(1492) & "!" & vbCrLf & savePath, vbInformation
 
-1040    Exit Sub
+1060    Exit Sub
 
 ERR_HANDLER:
         Dim errLine As Long
         Dim errDesc As String
         Dim errNum As Long
-1050    errLine = Erl
-1052    errDesc = Err.Description
-1054    errNum = Err.Number
-1056    On Error Resume Next
+1070    errLine = Erl
+1072    errDesc = Err.Description
+1074    errNum = Err.Number
+1076    On Error Resume Next
         With wsMain.Range("B8")
             .Value = ""
             .Interior.ColorIndex = xlNone
@@ -2387,7 +2396,7 @@ ERR_HANDLER:
         For ei = 1 To sheetCount * 2
             Kill imgFiles(ei)
         Next ei
-1060    MsgBoxU ChrW(1513) & ChrW(1490) & ChrW(1497) & ChrW(1488) & ChrW(1492) & " " & ChrW(1489) & ChrW(1497) & ChrW(1510) & ChrW(1497) & ChrW(1512) & ChrW(1514) & " " & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & ":" & vbCrLf & "Line: " & errLine & vbCrLf & "Err #" & errNum & ": " & errDesc, vbCritical
+1080    MsgBoxU ChrW(1513) & ChrW(1490) & ChrW(1497) & ChrW(1488) & ChrW(1492) & " " & ChrW(1489) & ChrW(1497) & ChrW(1510) & ChrW(1497) & ChrW(1512) & ChrW(1514) & " " & ChrW(1502) & ChrW(1510) & ChrW(1490) & ChrW(1514) & ":" & vbCrLf & "Line: " & errLine & vbCrLf & "Err #" & errNum & ": " & errDesc, vbCritical
 
 End Sub
 
@@ -2772,17 +2781,17 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 350     tblTop = 45
 360     tblLeft = 10
 370     tblWidth = slideW - 20
-380     rowH = 22
-390     If tblRows > 20 Then rowH = 18
+380     rowH = 28
+390     If tblRows > 20 Then rowH = 24
 400     tblHeight = tblRows * rowH
 
 410     Set ppTbl = ppSlide.Shapes.AddTable(tblRows, tblCols, tblLeft, tblTop, tblWidth, tblHeight)
 420     Set tbl = ppTbl.Table
 
         ' Column widths (13 cols)
-430     tbl.Columns(1).Width = tblWidth * 0.13
-440     tbl.Columns(2).Width = tblWidth * 0.08
-450     tbl.Columns(3).Width = tblWidth * 0.08
+430     tbl.Columns(1).Width = tblWidth * 0.08
+440     tbl.Columns(2).Width = tblWidth * 0.105
+450     tbl.Columns(3).Width = tblWidth * 0.105
 460     tbl.Columns(4).Width = tblWidth * 0.06
 470     tbl.Columns(5).Width = tblWidth * 0.07
 480     tbl.Columns(6).Width = tblWidth * 0.07
@@ -2826,12 +2835,14 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
         ' Format header rows
 770     For c = 1 To tblCols
-780         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 9
+780         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Name = "Arial"
+782         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 14
 790         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Bold = True
 800         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
 810         tbl.Cell(1, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 820         tbl.Cell(1, c).Shape.Fill.ForeColor.RGB = blueClr
-830         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 9
+830         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Name = "Arial"
+832         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 14
 840         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Bold = True
 850         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
 860         tbl.Cell(2, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
@@ -2882,7 +2893,8 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
             ' Format data cells
 1240        For c = 1 To tblCols
-1250            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 8
+1250            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Name = "Arial"
+1252            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 14
 1260            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 1270            If idx Mod 2 = 0 Then
 1280                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = lightBlue
@@ -2945,7 +2957,8 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
         ' Format total row
 1720    For c = 1 To tblCols
-1730        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 9
+1730        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Name = "Arial"
+1732        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 14
 1740        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Bold = True
 1750        tbl.Cell(totR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 1760        tbl.Cell(totR, c).Shape.Fill.ForeColor.RGB = RGB(220, 230, 240)
@@ -2962,21 +2975,20 @@ End Sub
 ' ============================================================================
 Private Sub AddPageNumber(ByVal ppSlide As Object, ByVal pageNum As Long, ByVal totalPages As Long, ByVal slideW As Single, ByVal slideH As Single)
 
-10      On Error GoTo ERR_HANDLER
+10      On Error Resume Next
 
         Dim shp As Object
-20      Set shp = ppSlide.Shapes.AddTextbox(1, slideW - 100, slideH - 30, 90, 22)
+20      Set shp = ppSlide.Shapes.AddTextbox(1, slideW - 120, 2, 110, 22)
 30      shp.TextFrame.TextRange.Text = pageNum & " / " & totalPages
-40      shp.TextFrame.TextRange.Font.Size = 11
-50      shp.TextFrame.TextRange.Font.Color.RGB = RGB(100, 100, 100)
-60      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
-70      shp.TextFrame.WordWrap = False
-80      shp.TextFrame.MarginTop = 0
-90      shp.TextFrame.MarginBottom = 0
+40      shp.TextFrame.TextRange.Font.Name = "Arial"
+50      shp.TextFrame.TextRange.Font.Size = 10
+60      shp.TextFrame.TextRange.Font.Color.RGB = RGB(120, 120, 120)
+70      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
+80      shp.TextFrame.WordWrap = False
+90      shp.TextFrame.MarginTop = 0
+100     shp.TextFrame.MarginBottom = 0
+110     shp.ZOrder 0
 
-100     Exit Sub
-ERR_HANDLER:
-110     Err.Raise Err.Number, "AddPageNumber:" & Erl, Err.Description
 End Sub
 
 
