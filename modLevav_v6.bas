@@ -2772,8 +2772,8 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 350     tblTop = 45
 360     tblLeft = 10
 370     tblWidth = slideW - 20
-380     rowH = 16
-390     If tblRows > 20 Then rowH = 14
+380     rowH = 22
+390     If tblRows > 20 Then rowH = 18
 400     tblHeight = tblRows * rowH
 
 410     Set ppTbl = ppSlide.Shapes.AddTable(tblRows, tblCols, tblLeft, tblTop, tblWidth, tblHeight)
@@ -2826,12 +2826,12 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
         ' Format header rows
 770     For c = 1 To tblCols
-780         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 7
+780         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Size = 9
 790         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Bold = True
 800         tbl.Cell(1, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
 810         tbl.Cell(1, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 820         tbl.Cell(1, c).Shape.Fill.ForeColor.RGB = blueClr
-830         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 7
+830         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Size = 9
 840         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Bold = True
 850         tbl.Cell(2, c).Shape.TextFrame.TextRange.Font.Color.RGB = RGB(255, 255, 255)
 860         tbl.Cell(2, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
@@ -2882,7 +2882,7 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
             ' Format data cells
 1240        For c = 1 To tblCols
-1250            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 6
+1250            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.Font.Size = 8
 1260            tbl.Cell(tblR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 1270            If idx Mod 2 = 0 Then
 1280                tbl.Cell(tblR, c).Shape.Fill.ForeColor.RGB = lightBlue
@@ -2945,7 +2945,7 @@ Private Sub BuildTableSlide(ByVal ppSlide As Object, ByVal sheetName As String, 
 
         ' Format total row
 1720    For c = 1 To tblCols
-1730        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 7
+1730        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Size = 9
 1740        tbl.Cell(totR, c).Shape.TextFrame.TextRange.Font.Bold = True
 1750        tbl.Cell(totR, c).Shape.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 1760        tbl.Cell(totR, c).Shape.Fill.ForeColor.RGB = RGB(220, 230, 240)
@@ -2962,16 +2962,21 @@ End Sub
 ' ============================================================================
 Private Sub AddPageNumber(ByVal ppSlide As Object, ByVal pageNum As Long, ByVal totalPages As Long, ByVal slideW As Single, ByVal slideH As Single)
 
-10      On Error Resume Next
+10      On Error GoTo ERR_HANDLER
 
         Dim shp As Object
-20      Set shp = ppSlide.Shapes.AddTextbox(1, slideW - 80, slideH - 25, 70, 20)
+20      Set shp = ppSlide.Shapes.AddTextbox(1, slideW - 100, slideH - 30, 90, 22)
 30      shp.TextFrame.TextRange.Text = pageNum & " / " & totalPages
-40      shp.TextFrame.TextRange.Font.Size = 10
-50      shp.TextFrame.TextRange.Font.Color.RGB = RGB(120, 120, 120)
+40      shp.TextFrame.TextRange.Font.Size = 11
+50      shp.TextFrame.TextRange.Font.Color.RGB = RGB(100, 100, 100)
 60      shp.TextFrame.TextRange.ParagraphFormat.Alignment = 2
 70      shp.TextFrame.WordWrap = False
+80      shp.TextFrame.MarginTop = 0
+90      shp.TextFrame.MarginBottom = 0
 
+100     Exit Sub
+ERR_HANDLER:
+110     Err.Raise Err.Number, "AddPageNumber:" & Erl, Err.Description
 End Sub
 
 
