@@ -12,7 +12,7 @@
 #End If
 
 ' --- General constants ---
-Private Const SOURCE_FOLDER As String = "C:\SOURCE\"
+' SOURCE_FOLDER is now a function (see bottom of module) to support Hebrew path
 ' Sheet names are now functions to support Hebrew via ChrW
 ' CONTROL_SHEET_NAME = daf habait
 ' MANAGEMENT_SHEET_NAME = hagdarot
@@ -3005,6 +3005,11 @@ End Sub
 ' ============================================================================
 ' SHEET NAME FUNCTIONS (Hebrew via ChrW)
 ' ============================================================================
+
+Private Function SOURCE_FOLDER() As String
+    ' C:\פרויקט לבב\SOURCE\
+    SOURCE_FOLDER = "C:\" & ChrW(1508) & ChrW(1512) & ChrW(1493) & ChrW(1497) & ChrW(1511) & ChrW(1496) & " " & ChrW(1500) & ChrW(1489) & ChrW(1489) & "\SOURCE\"
+End Function
 
 Private Function CONTROL_SHEET_NAME() As String
     ' daf habait
