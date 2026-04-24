@@ -35,6 +35,7 @@ Private Const COL_HELPER_KEY As Long = 14
 Private Const COL_HELPER_VALUE As Long = 15
 
 Private Const PARAM_PREMIUM_THRESHOLD As String = "PREMIUM_THRESHOLD"
+Private Const PARAM_ERROR_EMAIL As String = "ERROR_EMAIL"
 Private Const KEY_BRANCH_NAME As String = "BRANCH_NAME"
 Private Const KEY_PREMIUM As String = "PREMIUM"
 Private Const HELPER_REVIEW_SOURCE_ROW_HEADER As String = "REVIEW_SOURCE_ROW_HEADER"
@@ -412,9 +413,11 @@ NextRow:
 1000    actionCol = cnt + 3
 1010    If outRow > 2 Then
 1020        Set rng = wsRev.Range(wsRev.Cells(2, actionCol), wsRev.Cells(outRow - 1, actionCol))
-1025        On Error Resume Next
-1030        rng.Validation.Delete
-1040        rng.Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Formula1:=ChrW(1514) & ChrW(1511) & ChrW(1503) & "," & ChrW(1492) & ChrW(1514) & ChrW(1506) & ChrW(1500) & ChrW(1501)
+            ' Set default value: "ha'aver livdika" = transfer for review
+1025        rng.Value = ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & " " & ChrW(1500) & ChrW(1489) & ChrW(1491) & ChrW(1497) & ChrW(1511) & ChrW(1492)
+1030        On Error Resume Next
+1035        rng.Validation.Delete
+1040        rng.Validation.Add Type:=xlValidateList, AlertStyle:=xlValidAlertStop, Formula1:=ChrW(1514) & ChrW(1511) & ChrW(1503) & "," & ChrW(1492) & ChrW(1514) & ChrW(1506) & ChrW(1500) & ChrW(1501) & "," & ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & " " & ChrW(1500) & ChrW(1489) & ChrW(1491) & ChrW(1497) & ChrW(1511) & ChrW(1492)
 1050        rng.Validation.InCellDropdown = True
 1060        On Error GoTo ERR_HANDLER
 1070    End If
@@ -434,6 +437,19 @@ NextRow:
 1116    If outRow > 2 Then
 1117        wsRev.Range(wsRev.Cells(2, actionCol), wsRev.Cells(outRow - 1, actionCol + 1)).Interior.Color = RGB(255, 255, 200)
 1118    End If
+
+        ' Add "Done Updating" button on the review sheet
+1119    Dim shpBtn As Shape
+1120    Set shpBtn = wsRev.Shapes.AddShape(msoShapeRoundedRectangle, 10, 2, 160, 30)
+1121    shpBtn.Name = "btnSendForReview"
+1122    shpBtn.Fill.ForeColor.RGB = RGB(180, 0, 0)
+        ' "siymti le'adken" = done updating
+1123    shpBtn.TextFrame2.TextRange.Text = ChrW(1505) & ChrW(1497) & ChrW(1497) & ChrW(1502) & ChrW(1514) & ChrW(1497) & " " & ChrW(1500) & ChrW(1506) & ChrW(1491) & ChrW(1499) & ChrW(1503)
+1124    shpBtn.TextFrame2.TextRange.Font.Fill.ForeColor.RGB = RGB(255, 255, 255)
+1125    shpBtn.TextFrame2.TextRange.Font.Size = 12
+1126    shpBtn.TextFrame2.TextRange.Font.Bold = msoTrue
+1127    shpBtn.TextFrame2.TextRange.ParagraphFormat.Alignment = msoAlignCenter
+1128    shpBtn.OnAction = "SendForReview"
 
 CLEANUP:
 1200    Application.ScreenUpdating = prevScreenUpdating
@@ -677,6 +693,10 @@ Public Sub ApplyCorrectionsAndBuildReports()
 970                 ElseIf InStr(1, actionText, ChrW(1492) & ChrW(1514) & ChrW(1506) & ChrW(1500) & ChrW(1501), vbTextCompare) > 0 Then
 980                     dictHasIgnore(CStr(srcRowNum)) = True
 990                     ignoreCount = ignoreCount + 1
+                        ' "ha'aver livdika" = transfer for review - treat as ignore (pending response)
+992                 ElseIf InStr(1, actionText, ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & " " & ChrW(1500) & ChrW(1489) & ChrW(1491) & ChrW(1497) & ChrW(1511) & ChrW(1492), vbTextCompare) > 0 Then
+994                     dictHasIgnore(CStr(srcRowNum)) = True
+996                     ignoreCount = ignoreCount + 1
 1000                Else
 1010                    dictHasUnhandled(CStr(srcRowNum)) = True
 1020                    unhandledCount = unhandledCount + 1
@@ -921,7 +941,10 @@ NextSrcRow:
 2157                    dictRefRowFixes(refReasonText) = refFixText
 2159                ElseIf InStr(1, refActionText, ChrW(1492) & ChrW(1514) & ChrW(1506) & ChrW(1500) & ChrW(1501), vbTextCompare) > 0 Then
 2161                    dictRefHasIgnore(CStr(refSrcRowNum)) = True
-2163                Else
+                        ' "ha'aver livdika" = transfer for review - treat as ignore
+2162                ElseIf InStr(1, refActionText, ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & " " & ChrW(1500) & ChrW(1489) & ChrW(1491) & ChrW(1497) & ChrW(1511) & ChrW(1492), vbTextCompare) > 0 Then
+2163                    dictRefHasIgnore(CStr(refSrcRowNum)) = True
+2164                Else
 2165                    dictRefHasUnhandled(CStr(refSrcRowNum)) = True
 2167                End If
 2169            Next r
@@ -1699,6 +1722,29 @@ End Sub
 
 
 ' ============================================================================
+' HELPER: Get string parameter from NIHUL
+' ============================================================================
+Private Function GetStringParameter(ByVal ws As Worksheet, ByVal paramName As String) As String
+10      On Error GoTo ERR_HANDLER
+20      Dim r As Long
+30      Dim lastRow As Long
+40      Dim nm As String
+50      lastRow = ws.Cells(ws.Rows.Count, COL_PARAM_NAME).End(xlUp).Row
+60      For r = 1 To lastRow
+70          nm = UCase$(Trim$(CStr(ws.Cells(r, COL_PARAM_NAME).Value2)))
+80          If nm = UCase$(paramName) Then
+90              GetStringParameter = Trim$(CStr(ws.Cells(r, COL_PARAM_VALUE).Value2))
+100             Exit Function
+110         End If
+120     Next r
+130     GetStringParameter = ""
+140     Exit Function
+ERR_HANDLER:
+150     GetStringParameter = ""
+End Function
+
+
+' ============================================================================
 ' HELPER: Get numeric parameter from NIHUL
 ' ============================================================================
 Private Function GetNumericParameter(ByVal ws As Worksheet, ByVal paramName As String) As Double
@@ -2131,6 +2177,20 @@ Public Sub SetupMainSheet()
         wsMgmt.Cells(17, 19).Value = ChrW(1492) & ChrW(1488) & ChrW(1501) & " " & ChrW(1500) & ChrW(1492) & ChrW(1510) & ChrW(1497) & ChrW(1490) & " " & ChrW(1492) & ChrW(1493) & ChrW(1491) & ChrW(1506) & ChrW(1492) & " " & ChrW(1494) & ChrW(1493) & " " & ChrW(1513) & ChrW(1493) & ChrW(1489) & "?"
         ' S20 = flag: "1" means don't show confirmation again (empty = show)
         ' Don't overwrite S20 if already set
+
+        ' ---- Set Error_Email parameter if not exists ----
+895     Dim paramLastRow As Long
+896     paramLastRow = wsMgmt.Cells(wsMgmt.Rows.Count, COL_PARAM_NAME).End(xlUp).Row
+897     Dim foundEmail As Boolean
+898     foundEmail = False
+899     Dim pr As Long
+        For pr = 1 To paramLastRow
+            If UCase$(Trim$(CStr(wsMgmt.Cells(pr, COL_PARAM_NAME).Value2))) = "ERROR_EMAIL" Then foundEmail = True: Exit For
+        Next pr
+        If Not foundEmail Then
+            wsMgmt.Cells(paramLastRow + 1, COL_PARAM_NAME).Value = "ERROR_EMAIL"
+            wsMgmt.Cells(paramLastRow + 1, COL_PARAM_VALUE).Value = "zvi@gorentech.co.il"
+        End If
 
         ' ---- Set default values if empty ----
 900     If IsEmpty(wsMain.Range("B4").Value) Or wsMain.Range("B4").Value = "" Then
@@ -3062,3 +3122,149 @@ Private Function SHEET_SUMMARY() As String
     ' sikum
     SHEET_SUMMARY = ChrW(1505) & ChrW(1497) & ChrW(1499) & ChrW(1493) & ChrW(1501)
 End Function
+
+
+' ============================================================================
+' MACRO: SendForReview - collects rows marked "העבר לבדיקה" and sends via Outlook
+' Called from the "סיימתי לעדכן" button on the review sheet
+' ============================================================================
+Public Sub SendForReview()
+
+10      On Error GoTo ERR_HANDLER
+
+20      Dim wsRev As Worksheet
+30      Set wsRev = ActiveSheet
+
+        ' Verify we are on a review sheet (name starts with REVIEW_SHEET_NAME)
+40      If InStr(1, wsRev.Name, REVIEW_SHEET_NAME(), vbTextCompare) = 0 Then
+50          MsgBoxU ChrW(1497) & ChrW(1513) & " " & ChrW(1500) & ChrW(1492) & ChrW(1512) & ChrW(1497) & ChrW(1509) & " " & ChrW(1502) & ChrW(1490) & ChrW(1497) & ChrW(1500) & ChrW(1497) & ChrW(1493) & ChrW(1503) & " " & ChrW(1500) & ChrW(1496) & ChrW(1497) & ChrW(1508) & ChrW(1493) & ChrW(1500), vbExclamation
+60          Exit Sub
+70      End If
+
+        ' Find action column (header contains "peula" = פעולה)
+80      Dim lastCol As Long
+90      lastCol = wsRev.Cells(1, wsRev.Columns.Count).End(xlToLeft).Column
+100     Dim actionCol As Long
+110     actionCol = 0
+120     Dim c As Long
+130     For c = 1 To lastCol
+140         If InStr(1, CStr(wsRev.Cells(1, c).Value2), ChrW(1508) & ChrW(1506) & ChrW(1493) & ChrW(1500) & ChrW(1492), vbTextCompare) > 0 Then
+150             actionCol = c
+160             Exit For
+170         End If
+180     Next c
+190     If actionCol = 0 Then
+200         MsgBoxU ChrW(1500) & ChrW(1488) & " " & ChrW(1504) & ChrW(1502) & ChrW(1510) & ChrW(1488) & ChrW(1492) & " " & ChrW(1506) & ChrW(1502) & ChrW(1493) & ChrW(1491) & ChrW(1514) & " " & ChrW(1508) & ChrW(1506) & ChrW(1493) & ChrW(1500) & ChrW(1492), vbExclamation
+210         Exit Sub
+220     End If
+
+        ' Count rows with "ha'aver livdika"
+230     Dim lastRow As Long
+240     lastRow = wsRev.Cells(wsRev.Rows.Count, 1).End(xlUp).Row
+250     Dim sendCount As Long
+260     sendCount = 0
+270     Dim r As Long
+        ' "ha'aver livdika" = העבר לבדיקה
+        Dim actionMatch As String
+280     actionMatch = ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & " " & ChrW(1500) & ChrW(1489) & ChrW(1491) & ChrW(1497) & ChrW(1511) & ChrW(1492)
+290     For r = 2 To lastRow
+300         If InStr(1, CStr(wsRev.Cells(r, actionCol).Value2), actionMatch, vbTextCompare) > 0 Then
+310             sendCount = sendCount + 1
+320         End If
+330     Next r
+
+340     If sendCount = 0 Then
+            ' "ein shurot le'ha'avara" = no rows to transfer
+350         MsgBoxU ChrW(1488) & ChrW(1497) & ChrW(1503) & " " & ChrW(1513) & ChrW(1493) & ChrW(1512) & ChrW(1493) & ChrW(1514) & " " & ChrW(1500) & ChrW(1492) & ChrW(1506) & ChrW(1489) & ChrW(1512) & ChrW(1492), vbInformation
+360         Exit Sub
+370     End If
+
+        ' Get email address from parameters
+380     Dim wsMgmt As Worksheet
+390     Set wsMgmt = ThisWorkbook.Worksheets(MANAGEMENT_SHEET_NAME())
+400     Dim emailAddr As String
+410     emailAddr = GetStringParameter(wsMgmt, PARAM_ERROR_EMAIL)
+420     If emailAddr = "" Then
+            ' "lo hugdra ktovet email" = email address not defined
+430         MsgBoxU ChrW(1500) & ChrW(1488) & " " & ChrW(1492) & ChrW(1493) & ChrW(1490) & ChrW(1491) & ChrW(1512) & ChrW(1492) & " " & ChrW(1499) & ChrW(1514) & ChrW(1493) & ChrW(1489) & ChrW(1514) & " " & ChrW(1488) & ChrW(1497) & ChrW(1502) & ChrW(1497) & ChrW(1497) & ChrW(1500) & " " & ChrW(1489) & ChrW(1492) & ChrW(1490) & ChrW(1491) & ChrW(1512) & ChrW(1493) & ChrW(1514), vbExclamation
+440         Exit Sub
+450     End If
+
+        ' Create temp workbook with matching rows
+460     Dim wbTemp As Workbook
+470     Set wbTemp = Workbooks.Add
+480     Dim wsTemp As Worksheet
+490     Set wsTemp = wbTemp.Worksheets(1)
+
+        ' Copy header row
+500     Dim hdrCol As Long
+510     For hdrCol = 1 To lastCol
+520         wsTemp.Cells(1, hdrCol).Value = wsRev.Cells(1, hdrCol).Value
+530     Next hdrCol
+540     wsTemp.Rows(1).Font.Bold = True
+
+        ' Copy matching rows
+550     Dim outRow As Long
+560     outRow = 2
+570     For r = 2 To lastRow
+580         If InStr(1, CStr(wsRev.Cells(r, actionCol).Value2), actionMatch, vbTextCompare) > 0 Then
+590             For hdrCol = 1 To lastCol
+600                 wsTemp.Cells(outRow, hdrCol).Value = wsRev.Cells(r, hdrCol).Value
+610             Next hdrCol
+620             outRow = outRow + 1
+630         End If
+640     Next r
+650     wsTemp.Columns.AutoFit
+
+        ' Save temp file
+660     Dim tempPath As String
+670     tempPath = ThisWorkbook.Path & "\" & ChrW(1495) & ChrW(1512) & ChrW(1497) & ChrW(1490) & ChrW(1497) & ChrW(1501) & "_" & wsRev.Name & ".xlsx"
+680     Application.DisplayAlerts = False
+690     wbTemp.SaveAs tempPath, xlOpenXMLWorkbook
+700     wbTemp.Close SaveChanges:=False
+710     Application.DisplayAlerts = True
+
+        ' Build email body
+        ' "hi lahav" = הי להב
+720     Dim bodyLine1 As String
+730     bodyLine1 = ChrW(1492) & ChrW(1497) & " " & ChrW(1500) & ChrW(1492) & ChrW(1489)
+        ' "likrat hachanat doch avurchem nimtze'u hachrigim haram" = לקראת הכנת דוח עבורכם נמצאו החריגים הר"מ
+740     Dim bodyLine2 As String
+750     bodyLine2 = ChrW(1500) & ChrW(1511) & ChrW(1512) & ChrW(1488) & ChrW(1514) & " " & ChrW(1492) & ChrW(1499) & ChrW(1504) & ChrW(1514) & " " & ChrW(1491) & ChrW(1493) & ChrW(1495) & " " & ChrW(1506) & ChrW(1489) & ChrW(1493) & ChrW(1512) & ChrW(1499) & ChrW(1501) & " " & ChrW(1504) & ChrW(1502) & ChrW(1510) & ChrW(1488) & ChrW(1493) & " " & ChrW(1492) & ChrW(1495) & ChrW(1512) & ChrW(1497) & ChrW(1490) & ChrW(1497) & ChrW(1501) & " " & ChrW(1492) & ChrW(1512) & ChrW(34) & ChrW(1502)
+        ' "al mnat lehafik et hadoch ani mevakeshet tguvatcha al mnat she'etaken beheta'am"
+760     Dim bodyLine3 As String
+770     bodyLine3 = ChrW(1506) & ChrW(1500) & " " & ChrW(1502) & ChrW(1504) & ChrW(1514) & " " & ChrW(1500) & ChrW(1492) & ChrW(1508) & ChrW(1497) & ChrW(1511) & " " & ChrW(1488) & ChrW(1514) & " " & ChrW(1492) & ChrW(1491) & ChrW(1493) & ChrW(1495) & " " & ChrW(1488) & ChrW(1504) & ChrW(1497) & " " & ChrW(1502) & ChrW(1489) & ChrW(1511) & ChrW(1513) & ChrW(1514) & " " & ChrW(1514) & ChrW(1490) & ChrW(1493) & ChrW(1489) & ChrW(1514) & ChrW(1498) & " " & ChrW(1506) & ChrW(1500) & " " & ChrW(1502) & ChrW(1504) & ChrW(1514) & " " & ChrW(1513) & ChrW(1488) & ChrW(1514) & ChrW(1511) & ChrW(1503) & " " & ChrW(1489) & ChrW(1492) & ChrW(1514) & ChrW(1488) & ChrW(1501)
+        ' toda = תודה
+780     Dim bodyLine4 As String
+790     bodyLine4 = ChrW(1514) & ChrW(1493) & ChrW(1491) & ChrW(1492)
+        ' orit = אורית
+800     Dim bodyLine5 As String
+810     bodyLine5 = ChrW(1488) & ChrW(1493) & ChrW(1512) & ChrW(1497) & ChrW(1514)
+
+820     Dim emailBody As String
+830     emailBody = bodyLine1 & vbCrLf & vbCrLf & bodyLine2 & vbCrLf & bodyLine3 & vbCrLf & vbCrLf & bodyLine4 & vbCrLf & bodyLine5
+
+        ' Email subject: "charigim shenimtze'u letipulcha" = חריגים שנמצאו לטיפולך
+840     Dim emailSubject As String
+850     emailSubject = ChrW(1495) & ChrW(1512) & ChrW(1497) & ChrW(1490) & ChrW(1497) & ChrW(1501) & " " & ChrW(1513) & ChrW(1504) & ChrW(1502) & ChrW(1510) & ChrW(1488) & ChrW(1493) & " " & ChrW(1500) & ChrW(1496) & ChrW(1497) & ChrW(1508) & ChrW(1493) & ChrW(1500) & ChrW(1498)
+
+        ' Create Outlook email (late binding)
+860     Dim olApp As Object
+870     Dim olMail As Object
+880     Set olApp = CreateObject("Outlook.Application")
+890     Set olMail = olApp.CreateItem(0)
+900     olMail.To = emailAddr
+910     olMail.Subject = emailSubject
+920     olMail.Body = emailBody
+930     olMail.Attachments.Add tempPath
+940     olMail.Display
+
+        ' Success message: "email huchan be'hatzlacha im X shurot" = מייל הוכן בהצלחה עם X שורות
+950     MsgBoxU ChrW(1502) & ChrW(1497) & ChrW(1497) & ChrW(1500) & " " & ChrW(1492) & ChrW(1493) & ChrW(1499) & ChrW(1503) & " " & ChrW(1489) & ChrW(1492) & ChrW(1510) & ChrW(1500) & ChrW(1495) & ChrW(1492) & " " & ChrW(1506) & ChrW(1501) & " " & sendCount & " " & ChrW(1513) & ChrW(1493) & ChrW(1512) & ChrW(1493) & ChrW(1514), vbInformation
+
+960     Exit Sub
+
+ERR_HANDLER:
+970     MsgBoxU ChrW(1513) & ChrW(1490) & ChrW(1497) & ChrW(1488) & ChrW(1492) & " " & ChrW(1489) & ChrW(1513) & ChrW(1500) & ChrW(1497) & ChrW(1495) & ChrW(1514) & " " & ChrW(1502) & ChrW(1497) & ChrW(1497) & ChrW(1500) & ":" & vbCrLf & Err.Description, vbCritical
+
+End Sub
