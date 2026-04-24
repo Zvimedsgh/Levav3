@@ -104,17 +104,19 @@ End Function
 ' ============================================================================
 Private Function FindSourceFile(ByVal yearVal As String) As String
 10      Dim p As String
-20      p = SOURCE_FOLDER & yearVal & ".xlsx"
-30      If Dir$(p) <> "" Then
-40          FindSourceFile = p
-50          Exit Function
-60      End If
-70      p = SOURCE_FOLDER & yearVal & ".xls"
-80      If Dir$(p) <> "" Then
-90          FindSourceFile = p
-100         Exit Function
-110     End If
-120     FindSourceFile = ""
+20      Dim fso As Object
+30      Set fso = CreateObject("Scripting.FileSystemObject")
+40      p = SOURCE_FOLDER() & yearVal & ".xlsx"
+50      If fso.FileExists(p) Then
+60          FindSourceFile = p
+70          Exit Function
+80      End If
+90      p = SOURCE_FOLDER() & yearVal & ".xls"
+100     If fso.FileExists(p) Then
+110         FindSourceFile = p
+120         Exit Function
+130     End If
+140     FindSourceFile = ""
 End Function
 
 
