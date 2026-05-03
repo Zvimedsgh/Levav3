@@ -313,6 +313,9 @@ Public Sub BuildReview()
 480     BuildArrays dictFieldCol, dictFieldDisp, keys, cols, disp, cnt
 490     If cnt = 0 Then Err.Raise vbObjectError + 1001, "BuildReview", "NO CHECKED FIELDS"
 
+        Dim dictBranch As Object
+495     Set dictBranch = LoadBranchMapping(wsMgmt)
+
 500     threshold = GetNumericParameter(wsMgmt, PARAM_PREMIUM_THRESHOLD)
 
 510     yearVal = Trim$(CStr(ThisWorkbook.Worksheets(CONTROL_SHEET_NAME()).Range("B3").Value2))
@@ -405,6 +408,26 @@ Public Sub BuildReview()
 866                 outRow = outRow + 1
 870             End If
 880         End If
+
+            ' Check branch mapping - if branch not in translation table
+890         Dim brKey As String
+900         brKey = UCase$(Trim$(CStr(wsSrc.Cells(r, RAW_BRANCHNAME).Value2)))
+910         If brKey <> "" Then
+920             If Not dictBranch.Exists(brKey) Then
+921                 singleCode = "UNKNOWN_BRANCH"
+922                 If dictHelper.Exists(singleCode) Then
+923                     singleText = dictHelper(singleCode)
+924                 Else
+925                     singleText = ChrW(1506) & ChrW(1504) & ChrW(1507) & " " & ChrW(1500) & ChrW(1488) & " " & ChrW(1502) & ChrW(1494) & ChrW(1493) & ChrW(1492) & ChrW(1492)
+926                 End If
+930                 wsRev.Cells(outRow, 1).Value = r
+931                 For j = 1 To cnt
+932                     wsRev.Cells(outRow, j + 1).Value = wsSrc.Cells(r, cols(j)).Value2
+933                 Next j
+934                 wsRev.Cells(outRow, cnt + 2).Value = singleText
+936                 outRow = outRow + 1
+940             End If
+950         End If
 
 NextRow:
 990     Next r
